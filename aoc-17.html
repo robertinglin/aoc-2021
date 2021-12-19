@@ -1,0 +1,311 @@
+<html>
+
+<head>
+    <script>
+        const data = 'target area: x=207..263, y=-115..-63';//'target area: x=20..30, y=-10..-5';
+        const knownList = '23,-10 25,-9 27,-5 29,-6 22,-6 21,-7 9,0 27,-7 24,-5 25,-7 26,-6 25,-5 6,8 11,-2 20,-5 29,-10 6,3 28,-7 8,0 30,-6 29,-8 20,-10 6,7 6,4 6,1 14,-4 21,-6 26,-10 7,-1 7,7 8,-1 21,-9 6,2 20,-7 30,-10 14,-3 20,-8 13,-2 7,3 28,-8 29,-9 15,-3 22,-5 26,-8 25,-8 25,-6 15,-4 9,-2 15,-2 12,-2 28,-9 12,-3 24,-6 23,-7 25,-10 7,8 11,-3 26,-7 7,1 23,-9 6,0 22,-10 27,-6 8,1 22,-8 13,-4 7,6 28,-6 11,-4 12,-4 26,-9 7,4 24,-10 23,-8 30,-8 7,0 9,-1 10,-1 26,-5 22,-9 6,5 7,5 23,-6 28,-10 10,-2 11,-1 20,-9 14,-2 29,-7 13,-3 23,-5 24,-8 27,-9 30,-7 28,-5 21,-10 7,9 6,6 21,-5 27,-10 7,2 30,-9 21,-8 22,-7 24,-9 20,-6 6,9 29,-5 8,-2 27,-8 30,-5 24,-7';
+        let knownListArray = knownList.split(' ').map(pair => pair.split(',').map(Number));
+
+        const parse = (data) => {
+            const rect = data.match(/target area: x=((-|\d)+)\.\.((-|\d)+), y=((-|\d)+)\.\.((-|\d)+)/);
+            return {
+                x: Math.min(rect[1], rect[3]),
+                y: Math.max(rect[5], rect[7]),
+                width: Math.abs(rect[1] - rect[3]),
+                height: Math.abs(rect[5] - rect[7])
+            }
+        }
+        const distanceBetweenTwoPoints = (x1, y1, x2, y2) => {
+            return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+        }
+
+        const pointInRect = (x, y, rect) => {
+            return x >= rect.x && x <= rect.x + rect.width && y <= rect.y && y >= rect.y - rect.height;
+        }
+
+        const onCircle = (rect, circle) => {
+            const left = rect.x;
+            const right = rect.x + rect.width;
+            const top = rect.y;
+            const bottom = rect.y - rect.height;
+            // console.log(distanceBetweenTwoPoints(circle.x, circle.y, left, top),
+            //     distanceBetweenTwoPoints(circle.x, circle.y, right, top),
+            //     distanceBetweenTwoPoints(circle.x, circle.y, left, bottom),
+            //     distanceBetweenTwoPoints(circle.x, circle.y, right, bottom))
+            const pointsInCircle = [distanceBetweenTwoPoints(circle.x, circle.y, left, top) <= circle.radius,
+                distanceBetweenTwoPoints(circle.x, circle.y, right, top) <= circle.radius,
+                distanceBetweenTwoPoints(circle.x, circle.y, left, bottom) <= circle.radius,
+                distanceBetweenTwoPoints(circle.x, circle.y, right, bottom) <= circle.radius
+            ].reduce((acc, curr) => acc + curr, 0)
+            return pointsInCircle === 0 && -1 || pointsInCircle == 4 && 1 || 0;
+        
+        }
+
+        // const rectOnCircle = (rect, circle) => {
+        //     let formula = (x, y, r) => x * x + y * y;
+        //     const x = circle.x - rect.x;
+        //     const y = circle.y - rect.y;
+        //     return formula(x, y, circle.r) && formula(x + rect.width, y, circle.r) && formula(x, y + rect.height, circle.r) && formula(x + rect.width, y + rect.height, circle.r);
+
+        // }
+
+        const sumSeries = (num) => {
+            let sum = 0;
+            for (let i = 0; i < num; i++) {
+                sum += num - i;
+            }
+            return sum;
+        }
+        const bruteForce = (rect, xVel, yVel) => {
+            // const xVel = 6;
+            // const yVel = 9;
+            // for (let xVel = 0; xVel <= 100; xVel++) {
+            //     for (let yVel = 0; yVel <= 100; yVel++) {
+                    let velocity = {
+                        x: xVel,
+                        y: yVel
+                    }
+                    let peakY = velocity.y > 0 ? sumSeries(velocity.y) : 0;
+                    const leftoverX = Math.max(0, velocity.x - velocity.y);
+                    let peakX = velocity.y > 0 ? sumSeries(velocity.x) - sumSeries(leftoverX) : 0;
+                    let position = {
+                        x: peakX,
+                        y: peakY
+                    };
+                    // if (leftoverX === 0 && peakX < rect.x) {
+                    //     return 0;
+                    // }
+                    if (peakX > rect.x + rect.width) {
+                        return false;
+                    }
+                    velocity = {
+                        y: velocity.y > 0 ? 0 : velocity.y,
+                        x: velocity.y > 0 ? (velocity.x > velocity.y ? velocity.x - velocity.y : 0) : velocity.x
+                    }
+
+                    const peakVelocity = {
+                        x: velocity.x,
+                        y: velocity.y
+                    }
+                    const peakPosition = {
+                        x: position.x,
+                        y: position.y
+                    }
+
+                    // console.log('PEAK', position, velocity.x)
+
+                    let isOnCircle = false;
+                    while (isOnCircle = onCircle(rect, { x: peakX, y: peakY, radius: distanceBetweenTwoPoints(position.x, position.y, peakX, peakY)}) < 1) {
+                        position.x += velocity.x;
+                        position.y += velocity.y;
+                        velocity.x = Math.max(0, velocity.x - 1);
+                        velocity.y -= 1;
+
+                        if (pointInRect(position.x, position.y, rect)) {
+                            return true;
+                        }
+                        if (position.x > rect.x + rect.width) {
+                            return false;
+                        }
+                    // console.log(position);
+                    //     if (isOnCircle === true) {
+                    //         while (isOnCircle = onCircle(rect, { x: peakX, y: peakY, radius: distanceBetweenTwoPoints(position.x, position.y, peakX, peakY)}) === true) {
+                    //             position.x += velocity.x;
+                    //             position.y += velocity.y;
+                    //             velocity.x = Math.max(0, velocity.x - 1);
+                    //             velocity.y -= 1;
+                    //             console.log(position);
+                    //             if (pointInRect(position.x, position.y, rect)) {
+                    //                 return true;
+                    //             }
+                    //         }
+                    //     }
+                    }
+                    return pointInRect(position.x, position.y, rect)
+                    // if (onCircle(rect, { x: peakX, y: peakY, radius: distanceBetweenTwoPoints(position.x, position.y, peakX, peakY)}) === true) {
+                        //  && peakY;
+                    // }
+                    // return false;
+            //     }
+            // }
+        }
+        let ring = 0;
+        let pointMap = [];
+        let prevRes = 0;
+        let prevX = 0;
+        let prevY = 0;
+        let rect = parse(data);
+        let steps = 0;
+        // console.log(rect);
+        for (let y = -200; y < 1000; y++) {
+            for (let x = 0; x <= rect.x + rect.width; ++x) {
+                let res = bruteForce(rect, x, y);
+                if (res !== false) {
+                    knownListArray = knownListArray.filter(known => known[0] !== x || known[1] !== y);
+                    if (knownListArray.filter(known => known[0] === x && known[1] === y).length === 0) {
+                        console.log(x,y, knownListArray.filter(known => known[0] === x && known[1] === y).length);
+                    }
+                    steps++;
+                    // prevRes = res;
+                    // prevX = x;
+                    // prevY = y;
+                    // console.log('NEW RES', res, x, y)
+                }
+
+            }
+        }
+        let knownStep = 0;
+        // console.log(knownListArray);
+        knownListArray.forEach(([x,y]) => {
+            const result = bruteForce(rect, x, y);
+            if (result !== false) {
+                knownStep++;
+            }
+            // console.log(result, x, y)
+        })
+        console.log(bruteForce(rect, 30, -6))
+        console.log(steps, knownStep)
+        // while (ring < 100) {
+        //     for (let x = 0; x <= ring; x++) {
+        //         for (let y = -ring; y <= ring; y++) {
+        //             if (x === ring || y === ring) {
+        //                 // console.log(`${x},${y}`);
+        //                 // pointMap[y] = pointMap[y] || [];
+        //                 // pointMap[y][x] = `${x},${y}`;
+        //                 let res = bruteForce(rect, x, y);
+        //                 if (res > 0) {
+        //                     steps++;
+        //                     // prevRes = res;
+        //                     // prevX = x;
+        //                     // prevY = y;
+        //                     // console.log('NEW RES', res, x, y)
+        //                 }
+        //             }
+        //         } 
+        //     }
+        //     ring++;
+        // }
+        // console.log(steps);//pointMap.map(row => row.join(' ')).join('\n'))
+        // console.log(pointMap);
+
+        // console.log(bruteForce(parse(data), 6, 10));
+        // console.log(bruteForce(parse(data), 9, 0));
+        // console.log(bruteForce(parse(data), 6, 3));
+        // let ring = 0;
+        // const matches = [];
+        // while (ring < 10) {
+        //     for (i = ring; i < ring + 1; ++i) {
+        //         matches.push(bruteForce(parse(data), ring, i));
+        //         console.log(ring, i, bruteForce(parse(data), ring, i));
+        //     }
+        //     ring++;
+        // }
+        // console.log(matches);
+        
+
+        const solve = (rect, velocityX, velocityY) => {
+
+            let position = {
+                x: 0,
+                y: 0
+            };
+            let velocity = {
+                x: velocityX,
+                y: velocityY
+            }
+            let peakY = sumSeries(velocity.y);
+            let peakX = sumSeries(velocity.x > velocity.y ? velocity.x - velocity.y : velocity.x);
+            console.log(peakX, peakY);
+            let peakVelocity = {
+                y: 0,
+                x: velocity.x > velocity.y ? velocity.x - velocity.y : 0
+            }
+            return {
+                rect,
+                peakPosition: {
+                    x: peakX,
+                    y: peakY
+                },
+                peakVelocity
+            };
+        }
+        // console.log(solve(parse(data)));
+
+        const renderMap = ({ rect, peakPosition, peakVelocity }) => {
+            const canvas = document.getElementById('canvas');
+            let {  x: peakX, y: peakY } = peakPosition;
+
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let scale = 3
+            const radius = 1 * scale;
+
+            let leftOffset = 5;
+            let topOffset = 5 + peakY;;
+            ctx.fillRect((leftOffset + rect.x) * scale, ((topOffset) + Math.abs(rect.y)) * scale, rect.width * scale, rect.height * scale);
+
+            ctx.beginPath();
+            ctx.arc(leftOffset * scale, (topOffset) * scale, radius, 0, 2 * Math.PI, false);
+            ctx.fillStyle = 'green';
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc((leftOffset) * scale, (topOffset) * scale, radius, 0, 2 * Math.PI, false);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+
+            let velocity = {
+                x: peakVelocity.x,
+                y: peakVelocity.y
+            };
+            let position = {
+                x: peakX,
+                y: peakY
+            };
+
+            for (let i = 0; i < 11; ++i) {
+                let radius = distanceBetweenTwoPoints(position.x, position.y, peakX, peakY);
+                console.log(radius);
+                ctx.beginPath();
+                ctx.arc((leftOffset + position.x) * scale, (topOffset+ -position.y) * scale, 5, 0, 2 * Math.PI, false);
+                ctx.fillStyle = 'red';
+                ctx.fill();
+
+                // if (i === 9) {
+                    ctx.beginPath();
+                    ctx.arc((leftOffset + peakX) * scale, (topOffset - peakY) * scale, radius * scale, 0, 2 * Math.PI, false);
+
+                    if (onCircle(rect, { x: peakX, y: peakY, radius }) === true) {
+                    // if (pointInRect(position.x, position.y, rect) === true) {
+                        ctx.strokeStyle = '#FF0000';
+                        ctx.lineWidth = 2;
+                    } else if (pointInRect(position.x, position.y, rect)) {
+                        ctx.strokeStyle = '#0000FF';
+                        ctx.lineWidth = 2;
+
+                    } else {
+                        ctx.strokeStyle = '#003300';
+                        ctx.lineWidth = 1;
+                    }
+                    ctx.stroke();
+                    ctx.closePath()
+                // }
+
+                velocity.x = Math.max(0, velocity.x - 1);
+                velocity.y -= 1;
+                position.x += velocity.x;
+                position.y += velocity.y;
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <canvas id="canvas" width="500" height="500"></canvas>
+
+    <script>
+        // renderMap(solve(parse(data), 6  , 9));
+    </script>
+</body>
+
+</html>
